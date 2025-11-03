@@ -1,0 +1,79 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+        "label": "build",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "build",
+            "${workspaceFolder}/albums-api/albums-api.csproj",
+            "/property:GenerateFullPaths=true",
+            "/consoleloggerparameters:NoSummary;ForceNoAlign"
+        ],
+        "problemMatcher": "$msCompile"
+    },
+    {
+        "label": "publish",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "publish",
+            "${workspaceFolder}/albums-api/albums-api.csproj",
+            "/property:GenerateFullPaths=true",
+            "/consoleloggerparameters:NoSummary;ForceNoAlign"
+        ],
+        "problemMatcher": "$msCompile"
+    },
+    {
+        "label": "watch",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "watch",
+            "run",
+            "--project",
+            "${workspaceFolder}/gh-copilot-demo.sln"
+        ],
+        "problemMatcher": "$msCompile"
+    },
+    {
+        "label": "npm: install - album-viewer",
+        "type": "shell",
+        "command": "npm install",
+        "args": [],
+        "options": {
+            "cwd": "${workspaceFolder}/album-viewer"
+        },
+        "problemMatcher": []
+    },
+    {
+        "label": "shell: npm: dev - album-viewer",
+        "type": "shell",
+        "command": "npm",
+        "args": ["run", "dev"],
+        "options": {
+            "cwd": "${workspaceFolder}/album-viewer",
+            "env": {
+                "VITE_ALBUM_API_HOST": "localhost:3000",
+                "VITE_BACKGROUND_COLOR": "black"
+            }
+        },
+        "isBackground": true,
+        "problemMatcher": {
+            "pattern": {
+                "regexp": "^.*$",
+                "file": 1,
+                "location": 2,
+                "message": 3
+            },
+            "background": {
+                "activeOnStart": true,
+                "beginsPattern": "^.*Local:.*$",
+                "endsPattern": "^.*ready in.*$"
+            }
+        },
+        "group": "build"
+    }
+  ]
+}

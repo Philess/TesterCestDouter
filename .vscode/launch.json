@@ -1,0 +1,53 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "All services",
+      "configurations": ["C#: Album API Debug", "Node.js: Album Viewer Debug"]
+    }
+  ],
+  "configurations": [
+    {
+      "name": "C#: Album API Debug",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/albums-api/bin/Debug/net8.0/albums-api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/albums-api",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/albums-api/Views"
+      }
+    },
+    {
+      "name": "Node.js: Album Viewer Debug",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "3001"],
+      "cwd": "${workspaceFolder}/album-viewer",
+      "env": {
+        "NODE_ENV": "development",
+        "VITE_ALBUM_API_HOST": "localhost:3000",
+        "VITE_BACKGROUND_COLOR": "black"
+      },
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Local:   (http://localhost:[0-9]+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      }
+    }
+  ]
+}
