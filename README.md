@@ -13,12 +13,12 @@ This repository has been inspired by the [Azure Container Apps: Dapr Albums Samp
 
 It's used as a code base to demonstrate Github Copilot capabilities.
 
-The solution is composed of two services: the .net album API and the NodeJS album viewer.
+The solution is composed of two services: the Node.js album API and the Vue.js album viewer, both built with TypeScript.
 
 
-### Album API (`album-api`)
+### Album API (`albums-api`)
 
-The [`album-api`](./album-api) is an .NET 8 minimal Web API that manage a list of Albums in memory.
+The [`albums-api`](./albums-api) is a Node.js REST API built with Express.js and TypeScript that manages a list of albums in memory. It features full type safety with TypeScript strict mode, RESTful endpoints, and CORS support for cross-origin requests.
 
 ### Album Viewer (`album-viewer`)
 
@@ -30,8 +30,8 @@ There are multiple ways to run this solution locally. Choose the method that bes
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Node.js](https://nodejs.org/) (version 16 or higher)
+- [Node.js](https://nodejs.org/) (version 20 or higher)
+- [npm](https://www.npmjs.com/) (comes with Node.js)
 - [TypeScript](https://www.typescriptlang.org/) (automatically installed with project dependencies)
 - [Visual Studio Code](https://code.visualstudio.com/) (recommended)
 
@@ -45,30 +45,36 @@ This is the easiest way to run the solution with full debugging capabilities.
 4. Click the green play button or press F5
 
 This will automatically:
-- Build the .NET API and start it on `http://localhost:3000`
+- Build and start the Node.js TypeScript API on `http://localhost:3000`
 - Start the Vue.js TypeScript app on `http://localhost:3001`
 - Open both services in your default browser
 
 You can also run individual services:
-- **"C#: Album API Debug"** - Runs only the .NET API
+- **"Node.js: Album API Debug"** - Runs only the Node.js TypeScript API
 - **"Node.js: Album Viewer Debug"** - Runs only the Vue.js TypeScript frontend
 
 ### Option 2: Command Line
 
-#### Starting the Album API (.NET)
+#### Starting the Album API (Node.js + TypeScript)
 
 ```powershell
 # Navigate to the API directory
 cd albums-api
 
-# Restore dependencies (first time only)
-dotnet restore
+# Install dependencies (first time only)
+npm install
 
-# Run the API
-dotnet run
+# Build TypeScript code
+npm run build
+
+# Run the API in development mode
+npm run dev
+
+# Optional: Run TypeScript type checking
+npm run type-check
 ```
 
-The API will start on `http://localhost:3000` and you can access the Swagger documentation at `http://localhost:3000/swagger`.
+The API will start on `http://localhost:3000`.
 
 #### Starting the Album Viewer (Vue.js + TypeScript)
 
@@ -93,12 +99,14 @@ The Vue.js TypeScript app will start on `http://localhost:3001` and automaticall
 You can run both services simultaneously using separate terminal windows:
 
 ```powershell
-# Terminal 1 - Start the API
+# Terminal 1 - Start the Node.js TypeScript API
 cd albums-api
-dotnet run
+npm install
+npm run dev
 
 # Terminal 2 - Start the Vue TypeScript app
 cd album-viewer
+npm install
 npm run dev
 ```
 
@@ -111,7 +119,7 @@ The solution uses the following default configuration:
 - **API Endpoint**: The Vue app is configured to call the API at `localhost:3000`
 
 If you need to change these settings, you can modify:
-- API port: `albums-api/Properties/launchSettings.json`
+- API port: Set `PORT` environment variable or modify in `albums-api/src/server.ts`
 - Vue app configuration: Environment variables in `.vscode/launch.json` or set `VITE_ALBUM_API_HOST` environment variable
 
 ### Alternative: GitHub Codespaces
