@@ -13,10 +13,10 @@ This is a demo project showcasing GitHub Copilot capabilities through a modern m
 
 | Component | Technology | Version | Description |
 |-----------|------------|---------|-------------|
-| Backend | .NET 8 | 8.0+ | Minimal Web API with ASP.NET Core |
+| Backend | Node.js | 20.x+ | Express.js RESTful API |
 | Frontend | Vue.js 3 | 3.4+ | Modern SPA with Composition API |
 | Language | TypeScript | 5.9+ | Type-safe JavaScript development |
-| Build Tools | Vite, dotnet CLI | 5.0+, 8.0+ | Modern build tooling for both stacks |
+| Build Tools | Vite, Node.js | 5.0+, 20.x+ | Modern build tooling for both stacks |
 | Infrastructure | Azure Container Apps | Latest | Cloud-native container hosting |
 | IaC | Bicep, Terraform | Latest | Infrastructure as Code templates |
 | State Management | Dapr | Latest | Distributed application runtime |
@@ -25,15 +25,15 @@ This is a demo project showcasing GitHub Copilot capabilities through a modern m
 
 ### Root Level
 - **README.md**: Main project documentation and getting started guide
-- **gh-copilot-demo.sln**: Visual Studio solution file for the .NET components
 
 ### `/albums-api` - Backend Service
-.NET 8 minimal Web API that manages album data in memory.
+Node.js Express API that manages album data in memory.
 
 **Architecture Notes:**
-- Uses minimal API pattern with controller-based routing
+- Express.js RESTful API with modular routing
 - Configured for CORS to allow frontend access
-- Includes Swagger/OpenAPI documentation
+- TypeScript for type safety and improved developer experience
+- Modular architecture with separation of concerns
 - Default port configuration via environment variables
 
 ### `/album-viewer` - Frontend Application
@@ -51,14 +51,15 @@ Modern Vue.js 3 application with TypeScript and Composition API.
 
 ### Code Style and Standards
 
-#### Backend (.NET)
-- Enable nullable reference types for better type safety
-- Use minimal API pattern for simple endpoints
-- Follow standard .NET naming conventions:
-  - PascalCase for types, methods, and public members
-  - camelCase for parameters and local variables
-- Implement proper exception handling with custom middleware
-- Use async/await consistently for asynchronous operations
+#### Backend (Node.js)
+- Follow Node.js and Express best practices for API design
+- Use ES modules for module imports/exports
+- Follow JavaScript/TypeScript naming conventions:
+  - camelCase for variables, functions, and methods
+  - PascalCase for classes and types
+- Implement proper error handling middleware
+- Use async/await for asynchronous operations
+- Leverage TypeScript for type safety and better tooling
 
 #### Frontend (Vue.js)
 
@@ -86,9 +87,9 @@ Specific instructions for Vue.js and TypeScript are defined in the dedicated Cop
 #### Backend Tasks
 | Task | Command | Description | Usage |
 |------|---------|-------------|--------|
-| `build` | `dotnet build` | Compiles the .NET API project | Development builds |
-| `publish` | `dotnet publish` | Creates production build | Deployment preparation |
-| `watch` | `dotnet watch run` | Runs API in watch mode | Local development |
+| `npm install` | `npm install` | Installs dependencies | Initial setup, dependency updates |
+| `npm start` | `node server.js` | Starts the API server | Production execution |
+| `npm run dev` | `nodemon server.js` | Runs API in watch mode | Local development |
 
 #### Frontend Tasks
 | Task | Command | Description | Usage |
@@ -115,14 +116,17 @@ VITE_BACKGROUND_COLOR=black
 #### Development Workflow
 1. Start the backend API:
    ```bash
-   dotnet watch run --project albums-api
+   cd albums-api
+   npm install
+   npm run dev
    ```
 2. Start the frontend development server:
    ```bash
    cd album-viewer
+   npm install
    npm run dev
    ```
-3. Access the application at http://localhost:5173
+3. Access the application at http://localhost:3001
 
 ### Testing and Quality
 
@@ -158,16 +162,16 @@ VITE_BACKGROUND_COLOR=black
 
 
 ## Development Workflow
-1. Use `dotnet watch` for backend development with hot reload
+1. Use `npm run dev` with nodemon for backend development with auto-reload
 2. Use `npm run dev` for frontend development with Vite HMR
 3. Both services can run simultaneously for full-stack development
-4. API documentation available via Swagger UI in development mode
+4. Use API documentation for endpoint reference
 
 ## Key Dependencies
 **Backend:**
-- ASP.NET Core 8.0
-- Swashbuckle.AspNetCore for API documentation
-- Microsoft.Data.SqlClient for data access
+- Express.js for API development
+- TypeScript for type safety
+- Nodemon for development auto-reload
 
 **Frontend:**
 - Vue 3.4+ with Composition API
