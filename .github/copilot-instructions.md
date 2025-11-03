@@ -27,12 +27,14 @@ This is a demo project showcasing GitHub Copilot capabilities through a modern m
 - **README.md**: Main project documentation and getting started guide
 
 ### `/albums-api` - Backend Service
-Node.js Express API that manages album data in memory.
+Node.js Express API built with TypeScript that manages album data in memory.
 
 **Architecture Notes:**
 - Express.js RESTful API with modular routing
+- Full TypeScript implementation with strict mode
+- Type-safe data models and DTOs (CreateAlbumDto, UpdateAlbumDto)
 - Configured for CORS to allow frontend access
-- TypeScript for type safety and improved developer experience
+- Compiled from TypeScript (src/) to JavaScript (dist/)
 - Modular architecture with separation of concerns
 - Default port configuration via environment variables
 
@@ -51,15 +53,19 @@ Modern Vue.js 3 application with TypeScript and Composition API.
 
 ### Code Style and Standards
 
-#### Backend (Node.js)
+#### Backend (Node.js + TypeScript)
 - Follow Node.js and Express best practices for API design
-- Use ES modules for module imports/exports
-- Follow JavaScript/TypeScript naming conventions:
+- Use TypeScript with strict mode for all backend code
+- Follow TypeScript naming conventions:
   - camelCase for variables, functions, and methods
-  - PascalCase for classes and types
+  - PascalCase for classes, interfaces, and types
+  - Use explicit type annotations for function parameters and return types
+- Use ES modules for module imports/exports (with .js extensions)
 - Implement proper error handling middleware
 - Use async/await for asynchronous operations
 - Leverage TypeScript for type safety and better tooling
+- Define DTOs (Data Transfer Objects) for API contracts
+- Use type guards and runtime validation where needed
 
 #### Frontend (Vue.js)
 
@@ -88,8 +94,10 @@ Specific instructions for Vue.js and TypeScript are defined in the dedicated Cop
 | Task | Command | Description | Usage |
 |------|---------|-------------|--------|
 | `npm install` | `npm install` | Installs dependencies | Initial setup, dependency updates |
-| `npm start` | `node server.js` | Starts the API server | Production execution |
-| `npm run dev` | `nodemon server.js` | Runs API in watch mode | Local development |
+| `npm run build` | `tsc` | Compiles TypeScript to JavaScript | Before running or deploying |
+| `npm start` | `node dist/server.js` | Starts the compiled API server | Production execution |
+| `npm run dev` | `tsc && node --watch dist/server.js` | Builds and runs with auto-restart | Local development |
+| `npm run type-check` | `tsc --noEmit` | Type checks without compilation | CI/CD validation |
 
 #### Frontend Tasks
 | Task | Command | Description | Usage |
@@ -102,15 +110,6 @@ Specific instructions for Vue.js and TypeScript are defined in the dedicated Cop
 # Frontend (.env)
 VITE_ALBUM_API_HOST=localhost:3000
 VITE_BACKGROUND_COLOR=black
-
-# Backend (appsettings.Development.json)
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information"
-    }
-  }
-}
 ```
 
 #### Development Workflow
@@ -118,7 +117,8 @@ VITE_BACKGROUND_COLOR=black
    ```bash
    cd albums-api
    npm install
-   npm run dev
+   npm run build  # Compile TypeScript
+   npm run dev    # Run in development mode
    ```
 2. Start the frontend development server:
    ```bash
@@ -131,15 +131,16 @@ VITE_BACKGROUND_COLOR=black
 ### Testing and Quality
 
 #### Backend Testing
-- Unit tests located in `/albums-api/tests`
+- Unit tests located in `/albums-api/tests` (to be implemented)
+- Use Jest for TypeScript testing
+- Test requirements:
+  - Routes must have 80%+ coverage
+  - Integration tests for API endpoints
+  - Mock external dependencies
+  - Type-safe test utilities
 - Coverage reports:
   - HTML reports in `/albums-api/coverage/lcov-report`
   - JSON format in `/albums-api/coverage/coverage-final.json`
-  - Clover XML in `/albums-api/coverage/clover.xml`
-- Test requirements:
-  - Controllers must have 80%+ coverage
-  - Integration tests for API endpoints
-  - Mock external dependencies
 
 #### Frontend Testing
 - Type validation using `vue-tsc`
@@ -155,23 +156,25 @@ VITE_BACKGROUND_COLOR=black
 #### Quality Gates
 | Metric | Threshold | Tool |
 |--------|-----------|------|
-| Code Coverage | 80% | Jest/VSTest |
-| Type Safety | Strict | TypeScript/vue-tsc |
-| Linting | 0 errors | ESLint/StyleCop |
+| Code Coverage | 80% | Jest |
+| Type Safety | Strict | TypeScript (tsc --noEmit) |
+| Linting | 0 errors | ESLint |
 | Build Status | Pass | GitHub Actions |
 
 
 ## Development Workflow
-1. Use `npm run dev` with nodemon for backend development with auto-reload
-2. Use `npm run dev` for frontend development with Vite HMR
+1. Backend: Use `npm run build` to compile TypeScript, then `npm run dev` for auto-reload
+2. Frontend: Use `npm run dev` for Vite HMR
 3. Both services can run simultaneously for full-stack development
 4. Use API documentation for endpoint reference
+5. Run `npm run type-check` before committing to catch type errors
 
 ## Key Dependencies
 **Backend:**
-- Express.js for API development
-- TypeScript for type safety
-- Nodemon for development auto-reload
+- Express.js 4.x for API development
+- TypeScript 5.3+ for type safety
+- Node.js 20+ runtime
+- Type definitions: @types/node, @types/express, @types/cors
 
 **Frontend:**
 - Vue 3.4+ with Composition API

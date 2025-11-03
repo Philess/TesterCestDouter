@@ -1,19 +1,21 @@
-# Albums API - Node.js
+# Albums API - Node.js with TypeScript
 
-A modern Node.js REST API for managing music albums, built with Express.js. This API replaces the original C# implementation while maintaining full compatibility with the existing frontend.
+A modern Node.js REST API for managing music albums, built with Express.js and TypeScript. This API replaces the original C# implementation while maintaining full compatibility with the existing frontend.
 
 ## Features
 
 - ✅ RESTful API with full CRUD operations
+- ✅ TypeScript for type safety and enhanced developer experience
 - ✅ In-memory data storage
 - ✅ CORS enabled for cross-origin requests
 - ✅ ES2022 modules with modern JavaScript
 - ✅ Compatible with existing Vue.js frontend
 - ✅ Runs on port 3000 (configurable)
+- ✅ Strict TypeScript configuration for maximum type safety
 
 ## Prerequisites
 
-- Node.js 18.0.0 or higher
+- Node.js 20.0.0 or higher
 - npm (comes with Node.js)
 
 ## Installation
@@ -24,6 +26,9 @@ cd albums-api
 
 # Install dependencies
 npm install
+
+# Build the TypeScript code
+npm run build
 ```
 
 ## Running the API
@@ -36,6 +41,15 @@ npm run dev
 ### Production Mode
 ```bash
 npm start
+```
+
+### Type Checking
+```bash
+# Check types without building
+npm run type-check
+
+# Watch mode for TypeScript compilation
+npm run dev:watch
 ```
 
 The API will start on `http://localhost:3000` by default.
@@ -114,13 +128,19 @@ curl -X DELETE http://localhost:3000/albums/1
 
 ```
 albums-api/
-├── data/
-│   └── albums.js          # In-memory data store and operations
-├── routes/
-│   └── albums.js          # Album route handlers
-├── server.js              # Main application entry point
-├── package.json           # Project configuration and dependencies
-└── README.md             # This file
+├── src/                   # TypeScript source files
+│   ├── server.ts         # Main application entry point
+│   ├── types/
+│   │   └── album.ts      # TypeScript type definitions
+│   ├── data/
+│   │   └── albums.ts     # In-memory data store and operations
+│   └── routes/
+│       └── albums.ts     # Album route handlers
+├── dist/                  # Compiled JavaScript (generated)
+├── tsconfig.json         # TypeScript configuration
+├── package.json          # Project configuration and dependencies
+├── README.md            # This file
+└── TYPESCRIPT-MIGRATION.md  # TypeScript migration guide
 ```
 
 ## Compatibility with Frontend
@@ -134,19 +154,59 @@ This Node.js API is designed to be a drop-in replacement for the C# API:
 
 No changes are required to the Vue.js frontend to use this API.
 
+## TypeScript Features
+
+### Type Definitions
+
+The API uses TypeScript interfaces for type safety:
+
+```typescript
+interface Album {
+  id: number;
+  title: string;
+  artist: string;
+  price: number;
+  image_url: string;
+}
+
+type CreateAlbumDto = Omit<Album, 'id'>;
+type UpdateAlbumDto = Partial<Omit<Album, 'id'>>;
+```
+
+### Build Process
+
+- TypeScript code in `src/` compiles to JavaScript in `dist/`
+- Target: ES2022 with ES modules
+- Strict mode enabled for maximum type safety
+- Source maps generated for debugging
+
 ## Development Notes
 
 - Data is stored in memory and resets when the server restarts
 - Uses ES modules (`type: "module"` in package.json)
+- TypeScript compiled to ES2022 JavaScript
 - Follows RESTful conventions and HTTP status codes
 - Includes input validation and error handling
 - Compatible with the original C# API contract
+- Full type safety with TypeScript strict mode
+
+## NPM Scripts
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `build` | `tsc` | Compile TypeScript to JavaScript |
+| `start` | `node dist/server.js` | Run compiled server (production) |
+| `dev` | `tsc && node --watch dist/server.js` | Build and run with auto-restart |
+| `dev:watch` | `tsc --watch` | Run TypeScript compiler in watch mode |
+| `clean` | `rm -rf dist` | Remove compiled files |
+| `type-check` | `tsc --noEmit` | Check types without emitting files |
 
 ## Future Enhancements
 
 - Add database persistence (PostgreSQL, MongoDB, etc.)
 - Implement Dapr state store integration
 - Add authentication and authorization
-- Implement request validation with a schema library (e.g., Joi, Zod)
-- Add comprehensive test suite
+- Implement request validation with a schema library (e.g., Zod)
+- Add comprehensive test suite with Jest
 - Add API documentation with Swagger/OpenAPI
+- Add input validation decorators
