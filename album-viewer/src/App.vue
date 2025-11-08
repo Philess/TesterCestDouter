@@ -1,6 +1,9 @@
 <template>
   <div class="app">
     <header class="header">
+      <div class="header-top">
+        <CartIcon @toggle="toggleCartDrawer" />
+      </div>
       <div class="hero-content">
         <div class="japanese-text">音楽</div>
         <h1 class="main-title">ALBUM COLLECTION</h1>
@@ -56,6 +59,8 @@
         <p class="copyright">© 2025 Album Collection. All rights reserved. | 音楽</p>
       </div>
     </footer>
+
+    <CartDrawer :is-open="isCartDrawerOpen" @close="closeCartDrawer" />
   </div>
 </template>
 
@@ -63,11 +68,22 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import AlbumCard from './components/AlbumCard.vue'
+import CartIcon from './components/CartIcon.vue'
+import CartDrawer from './components/CartDrawer.vue'
 import type { Album } from './types/album'
 
 const albums = ref<Album[]>([])
 const loading = ref<boolean>(true)
 const error = ref<string | null>(null)
+const isCartDrawerOpen = ref<boolean>(false)
+
+const toggleCartDrawer = (): void => {
+  isCartDrawerOpen.value = !isCartDrawerOpen.value
+}
+
+const closeCartDrawer = (): void => {
+  isCartDrawerOpen.value = false
+}
 
 const fetchAlbums = async (): Promise<void> => {
   try {
@@ -98,10 +114,17 @@ onMounted(() => {
 
 .header {
   background: linear-gradient(180deg, #e2dccf 0%, #d8d0bf 100%);
-  padding: 4rem 2rem 6rem;
+  padding: 1.5rem 2rem 6rem;
   text-align: center;
   position: relative;
   overflow: hidden;
+}
+
+.header-top {
+  max-width: 1200px;
+  margin: 0 auto 2rem;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .header::before {
@@ -306,7 +329,11 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .header {
-    padding: 3rem 1rem 4rem;
+    padding: 1rem 1rem 4rem;
+  }
+
+  .header-top {
+    margin-bottom: 1.5rem;
   }
 
   .japanese-text {

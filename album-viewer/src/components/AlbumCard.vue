@@ -21,9 +21,13 @@
     </div>
     
     <div class="album-actions">
-      <button class="btn btn-primary">
-        <span class="btn-icon">🛒</span>
-        Add to Cart
+      <button 
+        class="btn btn-primary" 
+        @click="handleAddToCart"
+        :class="{ 'in-cart': isInCart(album.id) }"
+      >
+        <span class="btn-icon">{{ isInCart(album.id) ? '✓' : '🛒' }}</span>
+        {{ isInCart(album.id) ? `In Cart (${getItemQuantity(album.id)})` : 'Add to Cart' }}
       </button>
       <button class="btn btn-secondary">
         <span class="btn-icon">▶</span>
@@ -35,17 +39,25 @@
 
 <script setup lang="ts">
 import type { Album } from '../types/album'
+import { useCart } from '../composables/useCart'
 
 interface Props {
   album: Album
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const { addToCart, isInCart, getItemQuantity } = useCart()
 
 const handleImageError = (event: Event): void => {
   const target = event.target as HTMLImageElement
   target.src = 'https://via.placeholder.com/300x300/667eea/white?text=Album+Cover'
 }
+
+const handleAddToCart = (): void => {
+  addToCart(props.album)
+}
+
 </script>
 
 <style scoped>
@@ -149,14 +161,14 @@ const handleImageError = (event: Event): void => {
   backdrop-filter: blur(10px);
   padding: 0.5rem 1rem;
   border-radius: 4px;
-  border: 1px solid var(--primary-red);
+  border: 1px solid var(--primary-blue);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .price {
   font-size: 1.25rem;
   font-weight: bold;
-  color: var(--primary-red);
+  color: var(--primary-blue);
 }
 
 .album-info {
@@ -214,14 +226,23 @@ const handleImageError = (event: Event): void => {
 }
 
 .btn-primary {
-  background: var(--primary-red);
+  background: var(--primary-blue);
   color: white;
 }
 
+.btn-primary.in-cart {
+  background: #2d8659;
+  border: 2px solid #25a55f;
+}
+
+.btn-primary.in-cart:hover {
+  background: #247d4e;
+}
+
 .btn-primary:hover {
-  background: #b91c1c;
+  background: #274a6b;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 4px 12px rgba(49, 89, 129, 0.4);
 }
 
 .btn-secondary {
