@@ -1,0 +1,23 @@
+# Azure Load Testing Configuration for Albums API
+version: v0.1
+testName: Albums API Load Test - Progressive Load
+displayName: Albums API Load Test - Progressive to 1000 RPS
+description: Progressive load test ramping from 0 to 1000 requests per second
+
+# Test configuration
+testPlan: album-api-load-test.jmx
+engineInstances: 5
+
+# Environment variables passed to JMeter
+env:
+  - name: API_HOST
+    value: caum7ppzalhxlnu.kindwater-a545421f.eastus.azurecontainerapps.io
+  - name: API_PROTOCOL
+    value: https
+  - name: TEST_DURATION
+    value: "300"
+
+# Auto-stop configuration
+autoStop:
+  errorPercentage: 90
+  timeWindow: 60

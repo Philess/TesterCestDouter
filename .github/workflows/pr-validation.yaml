@@ -1,0 +1,398 @@
+name: PR Validation with Load Tests
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
+      - ".vscode/**"
+      - "assets/**"
+      - "**/*.md"
+      - ".github/instructions/**"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  set-env:
+    name: Set Environment Variables
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.main.outputs.version }}
+      created: ${{ steps.main.outputs.created }}
+      repository: ${{ steps.main.outputs.repository }}
+    steps:
+      - id: main
+        run: |
+          echo "version=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+          echo "repository=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
+
+  package-services:
+    runs-on: ubuntu-latest
+    needs: set-env
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api-image: ${{ steps.image-tag.outputs.image-album-api }}
+      ui-image: ${{ steps.image-tag.outputs.image-album-viewer }}
+    strategy:
+      matrix:
+        services:
+          [
+            { "appName": "album-api", "directory": "./albums-api" },
+            { "appName": "album-viewer", "directory": "./album-viewer" },
+          ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ needs.set-env.outputs.repository }}/${{ matrix.services.appName }}
+          tags: |
+            type=sha,prefix=pr-${{ github.event.pull_request.number }}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.services.directory }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Output image tag
+        id: image-tag
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${GITHUB_REPOSITORY}/${{ matrix.services.appName }}:pr-${{ github.event.pull_request.number }}-sha-${{ needs.set-env.outputs.version }}"
+          echo "image-${{ matrix.services.appName }}=${IMAGE_TAG,,}" >> $GITHUB_OUTPUT
+
+  deploy-test-environment:
+    runs-on: ubuntu-latest
+    needs: [package-services, set-env]
+    outputs:
+      api-url: ${{ steps.deployment-output.outputs.api-url }}
+      viewer-url: ${{ steps.deployment-output.outputs.viewer-url }}
+      resource-group: ${{ steps.deployment-output.outputs.resource-group }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to test environment
+        id: deploy
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            RG_NAME="${{ secrets.RESOURCE_GROUP }}-pr-${{ github.event.pull_request.number }}"
+            
+            echo "Creating resource group: $RG_NAME"
+            az group create -g $RG_NAME -l eastus
+            
+            echo "Deploying bicep template..."
+            DEPLOYMENT_OUTPUT=$(az deployment group create \
+              -g $RG_NAME \
+              -f ./iac/bicep/main.bicep \
+              --parameters \
+                apiImage='${{ needs.package-services.outputs.api-image }}' \
+                viewerImage='${{ needs.package-services.outputs.ui-image }}' \
+                registryName=${{ env.REGISTRY }} \
+                registryUsername=${{ github.actor }} \
+                registryPassword=${{ secrets.GITHUB_TOKEN }} \
+              --query 'properties.outputs' -o json)
+            
+            echo "resource-group=$RG_NAME" >> $GITHUB_OUTPUT
+            echo "$DEPLOYMENT_OUTPUT"
+
+      - name: Extract deployment outputs
+        id: deployment-output
+        run: |
+          # Extract API and Viewer URLs from deployment output
+          # Adjust these based on your bicep outputs
+          echo "resource-group=${{ steps.deploy.outputs.resource-group }}" >> $GITHUB_OUTPUT
+          echo "api-url=https://album-api-${{ github.event.pull_request.number }}.azurecontainerapps.io" >> $GITHUB_OUTPUT
+          echo "viewer-url=https://album-viewer-${{ github.event.pull_request.number }}.azurecontainerapps.io" >> $GITHUB_OUTPUT
+
+  run-load-tests:
+    runs-on: ubuntu-latest
+    needs: [deploy-test-environment]
+    if: success()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install Azure Load Testing extension
+        run: |
+          az extension add --name load --yes || az extension update --name load
+
+      - name: Create or update load test
+        id: deploy-test
+        run: |
+          TEST_ID="albums-api-pr-${{ github.event.pull_request.number }}"
+          LOAD_TEST_RESOURCE="${{ secrets.LOAD_TEST_RESOURCE }}"
+          RESOURCE_GROUP="${{ secrets.LOAD_TEST_RESOURCE_GROUP }}"
+          
+          echo "Deploying load test: $TEST_ID"
+          
+          # Check if load test resource exists, create if not
+          if ! az load show --name $LOAD_TEST_RESOURCE --resource-group $RESOURCE_GROUP --output none 2>/dev/null; then
+            echo "Creating Azure Load Testing resource..."
+            az load create \
+              --name $LOAD_TEST_RESOURCE \
+              --resource-group $RESOURCE_GROUP \
+              --location eastus
+          fi
+          
+          # Update load-test.yaml with PR-specific API endpoint
+          cd albums-api/tests/load
+          
+          # Extract hostname from API URL
+          API_HOST=$(echo "${{ needs.deploy-test-environment.outputs.api-url }}" | sed 's|https\?://||' | sed 's|/.*||')
+          
+          # Create temporary config with updated endpoint
+          cat > load-test-pr.yaml << EOF
+          version: v0.1
+          testName: Albums API Load Test - PR ${{ github.event.pull_request.number }}
+          displayName: Albums API Load Test - PR ${{ github.event.pull_request.number }}
+          description: Load test for PR ${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}
+          
+          testPlan: album-api-load-test.jmx
+          engineInstances: 3
+          
+          env:
+            - name: API_HOST
+              value: $API_HOST
+            - name: API_PROTOCOL
+              value: https
+            - name: TEST_DURATION
+              value: "300"
+          
+          autoStop:
+            errorPercentage: 90
+            timeWindow: 60
+          
+          failureCriteria:
+            - avg(response_time_ms) > 1000
+            - percentage(error) > 5
+          EOF
+          
+          # Deploy or update the test
+          if az load test show --test-id $TEST_ID --load-test-resource $LOAD_TEST_RESOURCE --resource-group $RESOURCE_GROUP --output none 2>/dev/null; then
+            echo "Updating existing test..."
+            az load test update \
+              --test-id $TEST_ID \
+              --load-test-resource $LOAD_TEST_RESOURCE \
+              --resource-group $RESOURCE_GROUP \
+              --display-name "Albums API Load Test - PR ${{ github.event.pull_request.number }}" \
+              --description "Load test for PR ${{ github.event.pull_request.number }}" \
+              --test-plan album-api-load-test.jmx \
+              --load-test-config-file load-test-pr.yaml \
+              --engine-instances 3
+          else
+            echo "Creating new test..."
+            az load test create \
+              --test-id $TEST_ID \
+              --load-test-resource $LOAD_TEST_RESOURCE \
+              --resource-group $RESOURCE_GROUP \
+              --display-name "Albums API Load Test - PR ${{ github.event.pull_request.number }}" \
+              --description "Load test for PR ${{ github.event.pull_request.number }}" \
+              --test-plan album-api-load-test.jmx \
+              --load-test-config-file load-test-pr.yaml \
+              --engine-instances 3
+          fi
+          
+          echo "test-id=$TEST_ID" >> $GITHUB_OUTPUT
+
+      - name: Run load test
+        id: run-test
+        run: |
+          TEST_ID="${{ steps.deploy-test.outputs.test-id }}"
+          TEST_RUN_ID="${TEST_ID}-$(date +%Y%m%d-%H%M%S)"
+          LOAD_TEST_RESOURCE="${{ secrets.LOAD_TEST_RESOURCE }}"
+          RESOURCE_GROUP="${{ secrets.LOAD_TEST_RESOURCE_GROUP }}"
+          
+          echo "Starting load test run: $TEST_RUN_ID"
+          
+          az load test-run create \
+            --test-id $TEST_ID \
+            --test-run-id $TEST_RUN_ID \
+            --load-test-resource $LOAD_TEST_RESOURCE \
+            --resource-group $RESOURCE_GROUP \
+            --display-name "PR ${{ github.event.pull_request.number }} - Load Test Run" \
+            --description "Automated load test for PR #${{ github.event.pull_request.number }}"
+          
+          echo "test-run-id=$TEST_RUN_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait for test completion
+        id: wait-test
+        run: |
+          TEST_RUN_ID="${{ steps.run-test.outputs.test-run-id }}"
+          LOAD_TEST_RESOURCE="${{ secrets.LOAD_TEST_RESOURCE }}"
+          RESOURCE_GROUP="${{ secrets.LOAD_TEST_RESOURCE_GROUP }}"
+          
+          echo "Waiting for load test to complete..."
+          echo "Test Run ID: $TEST_RUN_ID"
+          
+          MAX_WAIT_TIME=900  # 15 minutes
+          ELAPSED=0
+          SLEEP_INTERVAL=30
+          
+          while [ $ELAPSED -lt $MAX_WAIT_TIME ]; do
+            STATUS=$(az load test-run show \
+              --test-run-id $TEST_RUN_ID \
+              --load-test-resource $LOAD_TEST_RESOURCE \
+              --resource-group $RESOURCE_GROUP \
+              --query 'status' -o tsv)
+            
+            echo "Current status: $STATUS (elapsed: ${ELAPSED}s)"
+            
+            if [ "$STATUS" = "DONE" ] || [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELLED" ]; then
+              echo "Test completed with status: $STATUS"
+              echo "status=$STATUS" >> $GITHUB_OUTPUT
+              
+              # Get test results
+              RESULT=$(az load test-run show \
+                --test-run-id $TEST_RUN_ID \
+                --load-test-resource $LOAD_TEST_RESOURCE \
+                --resource-group $RESOURCE_GROUP \
+                --output json)
+              
+              echo "$RESULT" > test-results.json
+              
+              if [ "$STATUS" = "DONE" ]; then
+                exit 0
+              else
+                exit 1
+              fi
+            fi
+            
+            sleep $SLEEP_INTERVAL
+            ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+          done
+          
+          echo "Load test did not complete within ${MAX_WAIT_TIME}s"
+          echo "status=TIMEOUT" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Download test results
+        if: always() && steps.run-test.outputs.test-run-id
+        run: |
+          TEST_RUN_ID="${{ steps.run-test.outputs.test-run-id }}"
+          LOAD_TEST_RESOURCE="${{ secrets.LOAD_TEST_RESOURCE }}"
+          RESOURCE_GROUP="${{ secrets.LOAD_TEST_RESOURCE_GROUP }}"
+          
+          # Download results file if available
+          az load test-run download-files \
+            --test-run-id $TEST_RUN_ID \
+            --load-test-resource $LOAD_TEST_RESOURCE \
+            --resource-group $RESOURCE_GROUP \
+            --path ./load-test-results \
+            --force || echo "Could not download detailed results"
+
+      - name: Upload test results as artifact
+        if: always() && steps.run-test.outputs.test-run-id
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results-pr-${{ github.event.pull_request.number }}
+          path: |
+            test-results.json
+            load-test-results/
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: always() && steps.run-test.outputs.test-run-id
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const testRunId = '${{ steps.run-test.outputs.test-run-id }}';
+            const status = '${{ steps.wait-test.outputs.status }}' || 'UNKNOWN';
+            
+            let resultsJson = {};
+            try {
+              resultsJson = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+            } catch (e) {
+              console.log('Could not read results file');
+            }
+            
+            const portalUrl = `https://portal.azure.com/#@/resource/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.LOAD_TEST_RESOURCE_GROUP }}/providers/Microsoft.LoadTestService/loadtests/${{ secrets.LOAD_TEST_RESOURCE }}/testruns/${testRunId}`;
+            
+            const statusEmoji = status === 'DONE' ? '✅' : '❌';
+            
+            let comment = `## ${statusEmoji} Load Test Results - PR #${{ github.event.pull_request.number }}\n\n`;
+            comment += `**Status:** ${status}\n`;
+            comment += `**Test Run ID:** \`${testRunId}\`\n`;
+            comment += `**API Endpoint:** ${{ needs.deploy-test-environment.outputs.api-url }}\n\n`;
+            
+            if (resultsJson.testResult) {
+              comment += `### Performance Metrics\n`;
+              comment += `| Metric | Value |\n`;
+              comment += `|--------|-------|\n`;
+              comment += `| Total Requests | ${resultsJson.testResult.totalRequests || 'N/A'} |\n`;
+              comment += `| Failed Requests | ${resultsJson.testResult.failedRequests || 'N/A'} |\n`;
+              comment += `| Error % | ${resultsJson.testResult.errorPercentage || 'N/A'}% |\n`;
+              comment += `| Avg Response Time | ${resultsJson.testResult.avgResponseTime || 'N/A'} ms |\n`;
+              comment += `| P95 Response Time | ${resultsJson.testResult.p95ResponseTime || 'N/A'} ms |\n`;
+              comment += `| P99 Response Time | ${resultsJson.testResult.p99ResponseTime || 'N/A'} ms |\n`;
+              comment += `| Requests/sec | ${resultsJson.testResult.requestsPerSecond || 'N/A'} |\n\n`;
+            }
+            
+            comment += `### Links\n`;
+            comment += `- [View detailed results in Azure Portal](${portalUrl})\n`;
+            comment += `- [Download results artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  cleanup-on-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    needs: [deploy-test-environment]
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Delete test environment
+        run: |
+          RG_NAME="${{ needs.deploy-test-environment.outputs.resource-group }}"
+          echo "Deleting resource group: $RG_NAME"
+          az group delete -n $RG_NAME --yes --no-wait
+
+      - name: Delete load test
+        run: |
+          TEST_ID="albums-api-pr-${{ github.event.pull_request.number }}"
+          LOAD_TEST_RESOURCE="${{ secrets.LOAD_TEST_RESOURCE }}"
+          RESOURCE_GROUP="${{ secrets.LOAD_TEST_RESOURCE_GROUP }}"
+          
+          echo "Deleting load test: $TEST_ID"
+          az load test delete \
+            --test-id $TEST_ID \
+            --load-test-resource $LOAD_TEST_RESOURCE \
+            --resource-group $RESOURCE_GROUP \
+            --yes || echo "Test not found or already deleted"

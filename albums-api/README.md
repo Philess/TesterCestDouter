@@ -136,6 +136,13 @@ albums-api/
 │   │   └── albums.ts     # In-memory data store and operations
 │   └── routes/
 │       └── albums.ts     # Album route handlers
+├── tests/                 # Test files
+│   └── load/             # Load testing with Azure Load Testing
+│       ├── album-api-load-test.jmx  # JMeter test plan
+│       ├── load-test.yaml           # Azure Load Testing config
+│       ├── deploy-load-test.ps1     # Deployment script
+│       ├── run-load-test.ps1        # Execution script
+│       └── README.md                # Load testing guide
 ├── dist/                  # Compiled JavaScript (generated)
 ├── tsconfig.json         # TypeScript configuration
 ├── package.json          # Project configuration and dependencies
@@ -200,6 +207,39 @@ type UpdateAlbumDto = Partial<Omit<Album, 'id'>>;
 | `dev:watch` | `tsc --watch` | Run TypeScript compiler in watch mode |
 | `clean` | `rm -rf dist` | Remove compiled files |
 | `type-check` | `tsc --noEmit` | Check types without emitting files |
+
+## Load Testing
+
+The API includes comprehensive load testing capabilities using Azure Load Testing and Apache JMeter. The load tests simulate progressive load from 0 to 1000 requests per second.
+
+### Quick Start
+
+```powershell
+# Navigate to load test directory
+cd tests/load
+
+# Deploy test to Azure Load Testing
+.\deploy-load-test.ps1 -ResourceGroup "rg-albums-loadtest" -LoadTestResource "loadtest-albums-api"
+
+# Run the test
+.\run-load-test.ps1 -ResourceGroup "rg-albums-loadtest" -LoadTestResource "loadtest-albums-api" -Wait
+```
+
+### Test Phases
+
+1. **Warm-up** (1 min): 100 concurrent users
+2. **Medium Load** (2 min): 500 concurrent users
+3. **Peak Load** (2 min): 1000 concurrent users
+
+### Local Testing with JMeter
+
+```powershell
+# Run with JMeter (requires JMeter 5.6+)
+cd tests/load
+jmeter -n -t album-api-load-test.jmx -l results.jtl -e -o reports/
+```
+
+For detailed documentation, see [`tests/load/README.md`](./tests/load/README.md).
 
 ## Future Enhancements
 
