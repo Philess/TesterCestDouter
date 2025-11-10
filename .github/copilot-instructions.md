@@ -148,7 +148,7 @@ VITE_BACKGROUND_COLOR=black
   - Test UI interactions
   - Verify prop validation
   - Check emitted events
-- End-to-end testing with Cypress:
+- End-to-end testing with Playwright:
   - Cover critical user flows
   - Test API integration
   - Verify responsive design
