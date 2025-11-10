@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: albums-api
+
+infra:
+  provider: bicep
+  path: infra
+
+services:
+  albums-api:
+    project: ./albums-api
+    language: js
+    host: containerapp
